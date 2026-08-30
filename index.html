@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#040810" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="JARVIS" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<title>J.A.R.V.I.S. — Assistente Pessoal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #040810;
+    --panel: rgba(10, 22, 38, 0.72);
+    --panel-solid: #0a1626;
+    --line: rgba(79, 216, 255, 0.22);
+    --line-strong: rgba(79, 216, 255, 0.55);
+    --cyan: #4fd8ff;
+    --cyan-dim: #7ab8d4;
+    --gold: #f0b429;
+    --red: #ff5d5d;
+    --green: #3ddc84;
+    --text: #d7ecf7;
+    --muted: #7d97ab;
+    --glow: 0 0 12px rgba(79, 216, 255, 0.35);
+    --radius: 10px;
+    font-size: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* fundo: grade + varredura */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79,216,255,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 110%, rgba(240,180,41,0.06), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(79,216,255,0.035) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(79,216,255,0.035) 39px 40px);
+  }
+  body::after {
+    content: "";
+    position: fixed; left: 0; right: 0; height: 140px; z-index: 0;
+    background: linear-gradient(180deg, transparent, rgba(79,216,255,0.05), transparent);
+    animation: sweep 9s linear infinite; pointer-events: none;
+  }
+  @keyframes sweep { from { top: -140px; } to { top: 100vh; } }
+  @media (prefers-reduced-motion: reduce) {
+    body::after { display: none; }
+    * { animation-duration: 0.001s !important; }
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1500px; margin: 0 auto; padding: 14px clamp(10px, 2vw, 28px) 40px; }
+
+  /* ---------- topo ---------- */
+  header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;
+  }
+  .reactor {
+    width: 54px; height: 54px; border-radius: 50%; position: relative; flex: none;
+    background: radial-gradient(circle, #eafcff 0 18%, rgba(79,216,255,0.9) 30%, rgba(79,216,255,0.15) 60%, transparent 70%);
+    filter: drop-shadow(0 0 14px rgba(79,216,255,0.8));
+  }
+  .reactor::before, .reactor::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid rgba(79,216,255,0.7); border-left-color: transparent; border-right-color: transparent;
+    animation: spin 4s linear infinite;
+  }
+  .reactor::after { inset: 7px; border-color: rgba(240,180,41,0.65); border-top-color: transparent; border-bottom-color: transparent; animation: spin 2.6s linear infinite reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .brand h1 {
+    font-family: "Orbitron", sans-serif; font-size: clamp(1.3rem, 3vw, 2rem);
+    letter-spacing: 0.35em; margin: 0; color: var(--cyan); text-shadow: var(--glow);
+  }
+  .brand small { color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.68rem; }
+  .status-row { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    font-family: "JetBrains Mono", monospace; font-size: 0.72rem; letter-spacing: 0.05em;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px;
+    background: rgba(79,216,255,0.05); color: var(--cyan-dim); white-space: nowrap;
+  }
+  .chip b { color: var(--cyan); font-weight: 600; }
+  .chip.ok b { color: var(--green); }
+  .chip.warn b { color: var(--gold); }
+
+  /* ---------- grade ---------- */
+  .grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px; backdrop-filter: blur(6px); position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+  }
+  .card h2 {
+    font-family: "Orbitron", sans-serif; font-size: 0.82rem; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--cyan); margin: 0 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .card h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .hint { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+
+  /* ---------- controles ---------- */
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    width: 100%; background: rgba(4, 10, 18, 0.85); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px;
+    font-family: "Rajdhani", sans-serif; font-size: 1rem; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--line-strong); box-shadow: var(--glow); }
+  textarea { resize: vertical; min-height: 64px; }
+  button {
+    background: linear-gradient(180deg, rgba(79,216,255,0.16), rgba(79,216,255,0.05));
+    color: var(--cyan); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 9px 16px; font-family: "Rajdhani", sans-serif; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82rem; cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.05s;
+  }
+  button:hover { box-shadow: var(--glow); }
+  button:active { transform: translateY(1px); }
+  button.gold { color: var(--gold); border-color: rgba(240,180,41,0.55); background: linear-gradient(180deg, rgba(240,180,41,0.14), rgba(240,180,41,0.04)); }
+  button.danger { color: var(--red); border-color: rgba(255,93,93,0.5); background: linear-gradient(180deg, rgba(255,93,93,0.12), rgba(255,93,93,0.03)); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > input, .row > select { flex: 1; min-width: 120px; }
+  label.small { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; display: block; margin: 8px 0 3px; }
+
+  /* ---------- chat ---------- */
+  #chatCard { display: flex; flex-direction: column; min-height: 480px; }
+  #log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; max-height: 62vh; scroll-behavior: smooth; }
+  .msg { max-width: 88%; padding: 9px 13px; border-radius: 10px; line-height: 1.5; font-size: 1rem; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: rgba(240,180,41,0.10); border: 1px solid rgba(240,180,41,0.35); color: #f5e2b0; border-bottom-right-radius: 2px; }
+  .msg.jarvis { align-self: flex-start; background: rgba(79,216,255,0.07); border: 1px solid var(--line); border-bottom-left-radius: 2px; }
+  .msg.jarvis .who, .msg.user .who {
+    display: block; font-family: "Orbitron", sans-serif; font-size: 0.6rem; letter-spacing: 0.25em;
+    text-transform: uppercase; margin-bottom: 4px; color: var(--cyan);
+  }
+  .msg.user .who { color: var(--gold); }
+  .msg.thinking { color: var(--muted); font-style: italic; }
+  #chatControls { display: flex; gap: 8px; margin-top: 12px; }
+  #chatInput { flex: 1; }
+  #micBtn { min-width: 48px; font-size: 1.05rem; }
+  #micBtn.listening { color: var(--red); border-color: var(--red); box-shadow: 0 0 14px rgba(255,93,93,0.5); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 26px rgba(255,93,93,0.8); } }
+  .quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .quick button { font-size: 0.68rem; padding: 5px 10px; letter-spacing: 0.05em; opacity: 0.85; }
+
+  /* ---------- mercados ---------- */
+  table { width: 100%; border-collapse: collapse; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid rgba(79,216,255,0.10); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 400; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.1em; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.sym { cursor: pointer; }
+  tr.sym:hover td { background: rgba(79,216,255,0.06); }
+  .up { color: var(--green); } .down { color: var(--red); }
+  #chart { width: 100%; height: 180px; display: block; margin-top: 10px; border: 1px solid var(--line); border-radius: 7px; background: rgba(4,10,18,0.6); }
+  .table-scroll { overflow-x: auto; }
+  .sim-tag {
+    display: inline-block; font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase;
+    border: 1px solid rgba(240,180,41,0.5); color: var(--gold); border-radius: 4px; padding: 2px 7px; margin-left: 6px;
+  }
+
+  /* ---------- notícias ---------- */
+  #newsList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #newsList li { border-left: 2px solid var(--line-strong); padding: 2px 0 2px 10px; }
+  #newsList a { color: var(--text); text-decoration: none; font-size: 0.92rem; line-height: 1.35; display: block; }
+  #newsList a:hover { color: var(--cyan); }
+  #newsList time { color: var(--muted); font-size: 0.68rem; font-family: "JetBrains Mono", monospace; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.9rem; }
+  .kv dt { color: var(--muted); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.12em; align-self: center; }
+  .kv dd { margin: 0; font-family: "JetBrains Mono", monospace; font-size: 0.85rem; }
+
+  .out {
+    margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 7px;
+    font-size: 0.95rem; line-height: 1.5; min-height: 20px; white-space: pre-wrap;
+  }
+  .out:empty { display: none; }
+
+  footer { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 12px; color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+
+  /* ---------- telas ---------- */
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; }
+    #log { max-height: 48vh; }
+  }
+  /* Smart TV / telões: tudo maior, mais afastado */
+  @media (min-width: 1900px) {
+    :root { font-size: 22px; }
+    .wrap { max-width: 2100px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="reactor" aria-hidden="true"></div>
+    <div class="brand">
+      <h1>J.A.R.V.I.S.</h1>
+      <small>Just A Rather Very Intelligent System</small>
+    </div>
+    <div class="status-row">
+      <span class="chip" id="chipClock"><b>--:--:--</b></span>
+      <span class="chip" id="chipNet"><b>...</b></span>
+      <span class="chip" id="chipGeo">LOCAL <b>desconhecido</b></span>
+      <span class="chip" id="chipBot">CÉREBRO <b>comandos locais</b></span>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ coluna principal: chat ============ -->
+    <div class="col">
+      <section class="card" id="chatCard">
+        <h2>Console de comando</h2>
+        <div id="log" aria-live="polite"></div>
+        <div id="chatControls">
+          <button id="micBtn" title="Falar com o Jarvis">🎙</button>
+          <input type="text" id="chatInput" placeholder="Fale ou digite… ex.: clima em Tóquio, preço do bitcoin, notícias" autocomplete="off" />
+          <button id="sendBtn" class="gold">Enviar</button>
+        </div>
+        <div class="quick">
+          <button data-q="clima em Dourados">clima</button>
+          <button data-q="onde estou">onde estou</button>
+          <button data-q="preço do bitcoin">bitcoin</button>
+          <button data-q="cotação do dólar">dólar</button>
+          <button data-q="notícias">notícias</button>
+          <button data-q="traduzir bom dia para o inglês">traduzir</button>
+          <button data-q="ajuda">ajuda</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Mercados &amp; Trading <span class="sim-tag">simulação</span></h2>
+        <div class="table-scroll">
+          <table id="mktTable">
+            <thead><tr><th>Ativo</th><th>Preço (US$)</th><th>24h</th></tr></thead>
+            <tbody><tr><td colspan="3" class="hint">carregando cotações…</td></tr></tbody>
+          </table>
+        </div>
+        <canvas id="chart" width="900" height="220"></canvas>
+        <div class="row" style="margin-top:10px">
+          <select id="tradeSym"></select>
+          <input type="number" id="tradeUsd" min="10" step="10" value="100" title="valor em US$" />
+          <button id="buyBtn">Comprar</button>
+          <button id="sellBtn" class="danger">Vender</button>
+        </div>
+        <div class="table-scroll" style="margin-top:10px">
+          <table id="pfTable">
+            <thead><tr><th>Posição</th><th>Qtde</th><th>Médio</th><th>Agora</th><th>L/P</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint" id="pfSummary"></p>
+        <p class="hint">Preços e gráficos reais (Binance, atualiza a cada 15 s). As ordens são de <b>treino</b>: carteira virtual de US$ 10.000, nada de dinheiro real. <button id="resetPf" style="font-size:0.6rem;padding:3px 8px">zerar carteira</button></p>
+      </section>
+    </div>
+
+    <!-- ============ coluna lateral: módulos ============ -->
+    <div class="col">
+
+      <section class="card">
+        <h2>Clima mundial</h2>
+        <div class="row">
+          <input type="text" id="wxCity" placeholder="Qualquer cidade do mundo… ex.: Nova York" />
+          <button id="wxBtn">Buscar</button>
+        </div>
+        <div class="out" id="wxOut"></div>
+      </section>
+
+      <section class="card">
+        <h2>Localização em tempo real</h2>
+        <p class="hint">O rastreio usa o GPS deste aparelho e só funciona com a página aberta e com a sua permissão. Nada é enviado a servidor nenhum além da consulta de endereço.</p>
+        <div class="row" style="margin-top:8px">
+          <button id="geoBtn">Ativar rastreio</button>
+          <button id="geoStopBtn" class="danger" hidden>Parar</button>
+        </div>
+        <div class="out" id="geoOut"></div>
+      </section>
+
+      <section class="card">
+        <h2>Notícias do mundo</h2>
+        <div class="row">
+          <select id="newsTopic">
+            <option value="">Manchetes gerais</option>
+            <option value="WORLD">Mundo</option>
+            <option value="BUSINESS">Economia</option>
+            <option value="TECHNOLOGY">Tecnologia</option>
+            <option value="SCIENCE">Ciência</option>
+            <option value="SPORTS">Esportes</option>
+          </select>
+          <button id="newsBtn">Atualizar</button>
+        </div>
+        <ul id="newsList" style="margin-top:10px"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Tradutor universal</h2>
+        <textarea id="trText" placeholder="Texto em qualquer idioma…"></textarea>
+        <div class="row" style="margin-top:8px">
+          <select id="trTarget">
+            <option value="en">→ Inglês</option>
+            <option value="pt-BR">→ Português</option>
+            <option value="es">→ Espanhol</option>
+            <option value="fr">→ Francês</option>
+            <option value="de">→ Alemão</option>
+            <option value="it">→ Italiano</option>
+            <option value="ja">→ Japonês</option>
+            <option value="zh-CN">→ Chinês</option>
+            <option value="ru">→ Russo</option>
+            <option value="ko">→ Coreano</option>
+            <option value="ar">→ Árabe</option>
+          </select>
+          <button id="trBtn">Traduzir</button>
+          <button id="trSpeak" title="Ouvir tradução">🔊</button>
+        </div>
+        <div class="out" id="trOut"></div>
+      </section>
+
+      <section class="card">
+        <h2>Cérebro (bots de IA)</h2>
+        <p class="hint">Sem configurar nada, o Jarvis já responde os comandos locais (clima, preços, notícias, tradução…). Para conversa livre, conecte um bot:</p>
+        <label class="small">Provedor</label>
+        <select id="aiProvider">
+          <option value="none">Somente comandos locais</option>
+          <option value="xai">Grok (xAI)</option>
+          <option value="openai">OpenAI (ChatGPT)</option>
+          <option value="groq">Groq (Llama, grátis)</option>
+          <option value="ollama">Ollama local — funciona SEM internet</option>
+        </select>
+        <div id="aiKeyRow">
+          <label class="small">Chave de API</label>
+          <input type="password" id="aiKey" placeholder="cole aqui a sua chave (fica só neste aparelho)" />
+        </div>
+        <div id="aiUrlRow" hidden>
+          <label class="small">Endereço do Ollama</label>
+          <input type="text" id="aiUrl" value="http://localhost:11434" />
+        </div>
+        <label class="small">Modelo</label>
+        <input type="text" id="aiModel" placeholder="ex.: grok-4 · gpt-4o-mini · llama-3.3-70b-versatile · llama3.2" />
+        <label class="small">Voz do Jarvis</label>
+        <select id="voiceSel"></select>
+        <div class="row" style="margin-top:10px">
+          <button id="aiSave">Salvar</button>
+          <button id="voiceTest">Testar voz</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--muted)">
+            <input type="checkbox" id="speakToggle" checked style="width:auto" /> responder por voz
+          </label>
+        </div>
+        <div class="out" id="aiOut"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer>
+    J.A.R.V.I.S. — painel pessoal. Clima: Open-Meteo · Cotações: Binance &amp; open.er-api.com · Notícias: Google News RSS · Tradução: MyMemory ·
+    Endereço reverso: BigDataCloud. Chaves de API ficam gravadas somente neste navegador (localStorage).
+    O módulo de trading é <b>educacional</b>: preços reais, ordens simuladas — não é recomendação de investimento.
+    Sem internet, continuam funcionando: interface, voz, carteira salva e o bot Ollama (se instalado no aparelho).
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* =================================================================
+   J.A.R.V.I.S. — assistente pessoal em arquivo único
+   Tudo roda no navegador; nenhum dado sai do aparelho, exceto as
+   consultas às APIs públicas listadas no rodapé.
+   ================================================================= */
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("jarvis." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("jarvis." + k, JSON.stringify(v)); } catch { /* modo privado */ } },
+};
+
+/* ---------------- relógio e rede ---------------- */
+function tickClock() {
+  const now = new Date();
+  $("chipClock").innerHTML = "<b>" + now.toLocaleTimeString("pt-BR") + "</b> " +
+    now.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+setInterval(tickClock, 1000); tickClock();
+
+function netStatus() {
+  const on = navigator.onLine;
+  const c = $("chipNet");
+  c.className = "chip " + (on ? "ok" : "warn");
+  c.innerHTML = "REDE <b>" + (on ? "online" : "offline") + "</b>";
+}
+addEventListener("online", netStatus); addEventListener("offline", netStatus); netStatus();
+
+/* ---------------- voz: fala ---------------- */
+const hasTTS = "speechSynthesis" in window;
+let voices = [];
+function loadVoices() {
+  if (!hasTTS) return;
+  voices = speechSynthesis.getVoices();
+  const sel = $("voiceSel");
+  sel.innerHTML = "";
+  const pt = voices.filter(v => /^pt/i.test(v.lang));
+  const list = pt.length ? pt : voices;
+  // vozes com nome tipicamente masculino primeiro — o mais perto do Jarvis
+  const maleHint = /daniel|felipe|ricardo|antonio|male|masculin|thiago|google.*portugu/i;
+  list.sort((a, b) => (maleHint.test(b.name) ? 1 : 0) - (maleHint.test(a.name) ? 1 : 0));
+  for (const v of list) {
+    const o = document.createElement("option");
+    o.value = v.name; o.textContent = v.name + " (" + v.lang + ")";
+    sel.appendChild(o);
+  }
+  const saved = store.get("voice", null);
+  if (saved && list.some(v => v.name === saved)) sel.value = saved;
+}
+if (hasTTS) speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+function speak(text) {
+  if (!hasTTS || !$("speakToggle").checked) return;
+  speechSynthesis.cancel();
+  const clean = text.replace(/https?:\/\/\S+/g, "").replace(/[*_#`|]/g, "").slice(0, 600);
+  const u = new SpeechSynthesisUtterance(clean);
+  const v = voices.find(x => x.name === $("voiceSel").value);
+  if (v) u.voice = v;
+  u.lang = (v && v.lang) || "pt-BR";
+  u.rate = 1.02; u.pitch = 0.85; // um tom mais grave, estilo Jarvis
+  speechSynthesis.speak(u);
+}
+$("voiceTest").onclick = () => speak("Às suas ordens, senhor. Todos os sistemas operacionais.");
+
+/* ---------------- voz: escuta ---------------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (SR) {
+  rec = new SR();
+  rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
+  rec.onresult = (e) => { const t = e.results[0][0].transcript; $("chatInput").value = t; handleUserText(t); };
+  rec.onend = () => { listening = false; $("micBtn").classList.remove("listening"); };
+  rec.onerror = rec.onend;
+} else {
+  $("micBtn").title = "Reconhecimento de voz não disponível neste navegador (use Chrome, Edge ou Safari).";
+}
+$("micBtn").onclick = () => {
+  if (!rec) { addMsg("jarvis", "Este navegador não escuta por microfone. No iPhone use o Safari; no notebook, Chrome ou Edge."); return; }
+  if (listening) { rec.stop(); return; }
+  listening = true; $("micBtn").classList.add("listening"); rec.start();
+};
+
+/* ---------------- chat ---------------- */
+function addMsg(who, text, thinking) {
+  const div = document.createElement("div");
+  div.className = "msg " + who + (thinking ? " thinking" : "");
+  const tag = document.createElement("span");
+  tag.className = "who"; tag.textContent = who === "user" ? "Você" : "Jarvis";
+  div.appendChild(tag);
+  div.appendChild(document.createTextNode(text));
+  $("log").appendChild(div);
+  $("log").scrollTop = $("log").scrollHeight;
+  return div;
+}
+function jarvisSay(text) { addMsg("jarvis", text); speak(text); }
+
+$("sendBtn").onclick = () => { const t = $("chatInput").value.trim(); if (t) handleUserText(t); };
+$("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("sendBtn").click(); });
+document.querySelectorAll(".quick button").forEach(b => b.onclick = () => handleUserText(b.dataset.q));
+
+const HELP =
+  "Comandos que executo sozinho, sem precisar de chave de API:\n" +
+  "• \"clima em <cidade>\" — tempo em qualquer cidade do mundo\n" +
+  "• \"onde estou\" — sua posição atual\n" +
+  "• \"preço do bitcoin / ethereum / solana…\" — cotações ao vivo\n" +
+  "• \"cotação do dólar / euro\" — câmbio em reais\n" +
+  "• \"notícias\" — manchetes ao vivo\n" +
+  "• \"traduzir <texto> para <idioma>\"\n" +
+  "• \"que horas são\" / \"que dia é hoje\"\n" +
+  "Para conversa livre sobre qualquer assunto, conecte um bot no painel Cérebro.";
+
+async function handleUserText(text) {
+  $("chatInput").value = "";
+  addMsg("user", text);
+  const q = text.toLowerCase().trim();
+  try {
+    if (/^(ajuda|help|comandos)\b/.test(q)) return jarvisSay(HELP);
+
+    if (/que horas|hora atual|^horas?$/.test(q))
+      return jarvisSay("Agora são " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) + ", senhor.");
+
+    if (/que dia|data de hoje/.test(q))
+      return jarvisSay("Hoje é " + new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + ".");
+
+    const wx = q.match(/(?:clima|tempo|temperatura)\s+(?:em|no|na|de|do|da)\s+(.+)/);
+    if (wx) return jarvisSay(await weatherReport(wx[1]));
+
+    if (/onde estou|minha localiza/.test(q)) { startGeo(); return; }
+
+    if (/not[íi]cias|manchetes/.test(q)) {
+      const heads = await fetchNews($("newsTopic").value);
+      renderNews(heads);
+      if (!heads.length) return jarvisSay("Não consegui buscar as manchetes agora — verifique a conexão.");
+      return jarvisSay("Manchetes do momento:\n" + heads.slice(0, 5).map((h, i) => (i + 1) + ". " + h.title).join("\n"));
+    }
+
+    const coin = matchCoin(q);
+    if (coin) {
+      const p = await coinPrice(coin.sym);
+      return jarvisSay("O " + coin.name + " está em " + fmtUsd(p.price) + ", variação de " + p.chg.toFixed(2) + "% nas últimas 24 horas.");
+    }
+
+    const fx = q.match(/(?:cota[çc][ãa]o|pre[çc]o|valor)\s+d[oe]\s+(d[óo]lar|euro|libra)/);
+    if (fx) return jarvisSay(await fxReport(fx[1]));
+
+    const tr = q.match(/^traduz(?:a|ir)?\s+(.+?)\s+(?:para|pro|pra)\s+(?:o\s+)?(\S+)\s*$/i);
+    if (tr) {
+      const langs = { "inglês": "en", "ingles": "en", "espanhol": "es", "francês": "fr", "frances": "fr", "alemão": "de", "alemao": "de", "italiano": "it", "japonês": "ja", "japones": "ja", "chinês": "zh-CN", "chines": "zh-CN", "russo": "ru", "coreano": "ko", "árabe": "ar", "arabe": "ar", "português": "pt-BR", "portugues": "pt-BR" };
+      const to = langs[tr[2].toLowerCase()];
+      if (to) { const out = await translate(tr[1], "Autodetect", to); return jarvisSay("Tradução: " + out); }
+    }
+
+    // sem comando local → bot de IA, se configurado
+    const cfg = aiCfg();
+    if (cfg.provider === "none") return jarvisSay("Não reconheci esse comando. " + HELP);
+    const wait = addMsg("jarvis", "processando…", true);
+    const reply = await askAI(text, cfg);
+    wait.remove();
+    jarvisSay(reply);
+  } catch (err) {
+    jarvisSay("Tive um problema ao executar isso: " + (err.message || err));
+  }
+}
+
+/* ---------------- clima (Open-Meteo, sem chave) ---------------- */
+const WMO = { 0: "céu limpo", 1: "quase limpo", 2: "parcialmente nublado", 3: "nublado", 45: "névoa", 48: "nevoeiro", 51: "garoa fraca", 53: "garoa", 55: "garoa forte", 61: "chuva fraca", 63: "chuva", 65: "chuva forte", 66: "chuva congelante", 71: "neve fraca", 73: "neve", 75: "neve forte", 80: "pancadas de chuva", 81: "pancadas fortes", 82: "pancadas violentas", 95: "trovoadas", 96: "trovoadas com granizo", 99: "tempestade severa" };
+
+async function geocodeCity(name) {
+  const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(name) + "&count=1&language=pt&format=json");
+  const j = await r.json();
+  if (!j.results || !j.results.length) throw new Error("não encontrei a cidade \"" + name + "\"");
+  return j.results[0];
+}
+async function weatherReport(city) {
+  const g = await geocodeCity(city);
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + g.latitude + "&longitude=" + g.longitude +
+    "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2");
+  const j = await r.json();
+  const c = j.current, d = j.daily;
+  const txt = "Em " + g.name + (g.country ? ", " + g.country : "") + ": " + Math.round(c.temperature_2m) + "°C, " +
+    (WMO[c.weather_code] || "condição " + c.weather_code) + ". Sensação de " + Math.round(c.apparent_temperature) +
+    "°C, umidade " + c.relative_humidity_2m + "%, vento " + Math.round(c.wind_speed_10m) + " km/h. " +
+    "Hoje: mínima " + Math.round(d.temperature_2m_min[0]) + "°C, máxima " + Math.round(d.temperature_2m_max[0]) + "°C. " +
+    "Amanhã: " + Math.round(d.temperature_2m_min[1]) + "°C a " + Math.round(d.temperature_2m_max[1]) + "°C.";
+  $("wxOut").textContent = txt;
+  return txt;
+}
+$("wxBtn").onclick = async () => {
+  const c = $("wxCity").value.trim(); if (!c) return;
+  $("wxOut").textContent = "consultando…";
+  try { speak(await weatherReport(c)); } catch (e) { $("wxOut").textContent = "Erro: " + e.message; }
+};
+$("wxCity").addEventListener("keydown", e => { if (e.key === "Enter") $("wxBtn").click(); });
+
+/* ---------------- localização ---------------- */
+let geoWatch = null;
+function startGeo() {
+  if (!("geolocation" in navigator)) return jarvisSay("Este aparelho não fornece localização.");
+  $("geoOut").textContent = "aguardando GPS… (autorize no navegador)";
+  $("geoStopBtn").hidden = false;
+  if (geoWatch !== null) navigator.geolocation.clearWatch(geoWatch);
+  let spoken = false;
+  geoWatch = navigator.geolocation.watchPosition(async (pos) => {
+    const { latitude: lat, longitude: lon, speed, accuracy } = pos.coords;
+    let place = "";
+    try {
+      const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=pt");
+      const j = await r.json();
+      place = [j.locality || j.city, j.principalSubdivision, j.countryName].filter(Boolean).join(", ");
+    } catch { /* segue só com coordenadas */ }
+    const kmh = speed ? (speed * 3.6).toFixed(0) : "0";
+    $("geoOut").textContent =
+      (place ? "📍 " + place + "\n" : "") +
+      "lat " + lat.toFixed(5) + " · lon " + lon.toFixed(5) +
+      "\nvelocidade " + kmh + " km/h · precisão ±" + Math.round(accuracy) + " m" +
+      "\natualizado " + new Date().toLocaleTimeString("pt-BR");
+    $("chipGeo").innerHTML = "LOCAL <b>" + (place ? place.split(",")[0] : lat.toFixed(2) + "," + lon.toFixed(2)) + "</b>";
+    if (!spoken) { spoken = true; jarvisSay(place ? "O senhor está em " + place + "." : "Posição fixada em " + lat.toFixed(4) + ", " + lon.toFixed(4) + "."); }
+  }, (err) => {
+    $("geoOut").textContent = "Sem acesso à localização: " + err.message;
+    jarvisSay("Não recebi permissão para acessar a localização, senhor.");
+  }, { enableHighAccuracy: true, maximumAge: 5000 });
+}
+$("geoBtn").onclick = startGeo;
+$("geoStopBtn").onclick = () => {
+  if (geoWatch !== null) navigator.geolocation.clearWatch(geoWatch);
+  geoWatch = null; $("geoStopBtn").hidden = true;
+  $("geoOut").textContent = "rastreio desligado.";
+};
+
+/* ---------------- notícias (Google News RSS via proxy) ---------------- */
+async function fetchNews(topic) {
+  const feed = topic
+    ? "https://news.google.com/rss/headlines/section/topic/" + topic + "?hl=pt-BR&gl=BR&ceid=BR:pt-419"
+    : "https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419";
+  const proxies = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(feed),
+    "https://corsproxy.io/?url=" + encodeURIComponent(feed),
+  ];
+  for (const url of proxies) {
+    try {
+      const r = await fetch(url); if (!r.ok) continue;
+      const xml = new DOMParser().parseFromString(await r.text(), "text/xml");
+      const items = [...xml.querySelectorAll("item")].slice(0, 12).map(i => ({
+        title: i.querySelector("title")?.textContent || "",
+        link: i.querySelector("link")?.textContent || "#",
+        date: new Date(i.querySelector("pubDate")?.textContent || Date.now()),
+      })).filter(i => i.title);
+      if (items.length) return items;
+    } catch { /* tenta o próximo proxy */ }
+  }
+  return [];
+}
+function renderNews(items) {
+  const ul = $("newsList"); ul.innerHTML = "";
+  if (!items.length) { ul.innerHTML = "<li class='hint'>Não foi possível carregar as manchetes agora.</li>"; return; }
+  for (const it of items) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = it.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = it.title;
+    const t = document.createElement("time");
+    t.textContent = it.date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    li.appendChild(a); li.appendChild(t); ul.appendChild(li);
+  }
+}
+$("newsBtn").onclick = async () => { renderNews(await fetchNews($("newsTopic").value)); };
+
+/* ---------------- tradutor (MyMemory, sem chave) ---------------- */
+async function translate(text, from, to) {
+  const r = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text.slice(0, 500)) +
+    "&langpair=" + encodeURIComponent(from + "|" + to));
+  const j = await r.json();
+  if (!j.responseData || !j.responseData.translatedText) throw new Error("tradução indisponível no momento");
+  return j.responseData.translatedText;
+}
+$("trBtn").onclick = async () => {
+  const t = $("trText").value.trim(); if (!t) return;
+  $("trOut").textContent = "traduzindo…";
+  try { $("trOut").textContent = await translate(t, "Autodetect", $("trTarget").value); }
+  catch (e) { $("trOut").textContent = "Erro: " + e.message; }
+};
+$("trSpeak").onclick = () => {
+  const t = $("trOut").textContent; if (!t || !hasTTS) return;
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = $("trTarget").value;
+  const v = voices.find(x => x.lang.toLowerCase().startsWith($("trTarget").value.slice(0, 2).toLowerCase()));
+  if (v) u.voice = v;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+};
+
+/* ---------------- mercados ---------------- */
+const SYMS = [
+  { sym: "BTCUSDT", name: "Bitcoin", short: "BTC" },
+  { sym: "ETHUSDT", name: "Ethereum", short: "ETH" },
+  { sym: "SOLUSDT", name: "Solana", short: "SOL" },
+  { sym: "BNBUSDT", name: "BNB", short: "BNB" },
+  { sym: "XRPUSDT", name: "XRP", short: "XRP" },
+  { sym: "DOGEUSDT", name: "Dogecoin", short: "DOGE" },
+  { sym: "ADAUSDT", name: "Cardano", short: "ADA" },
+];
+let tickers = {}; // sym -> {price, chg}
+let chartSym = "BTCUSDT";
+
+function matchCoin(q) {
+  const map = { bitcoin: "BTCUSDT", btc: "BTCUSDT", ethereum: "ETHUSDT", eth: "ETHUSDT", solana: "SOLUSDT", bnb: "BNBUSDT", xrp: "XRPUSDT", ripple: "XRPUSDT", dogecoin: "DOGEUSDT", doge: "DOGEUSDT", cardano: "ADAUSDT", ada: "ADAUSDT" };
+  for (const k in map) if (q.includes(k)) return { sym: map[k], name: k.charAt(0).toUpperCase() + k.slice(1) };
+  return null;
+}
+const fmtUsd = (n) => "US$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 5 : 2 });
+
+async function coinPrice(sym) {
+  if (tickers[sym]) return tickers[sym];
+  const r = await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=" + sym);
+  const j = await r.json();
+  return { price: +j.lastPrice, chg: +j.priceChangePercent };
+}
+
+async function refreshMarkets() {
+  try {
+    const r = await fetch("https://api.binance.com/api/v3/ticker/24hr?symbols=" + encodeURIComponent(JSON.stringify(SYMS.map(s => s.sym))));
+    const j = await r.json();
+    const tb = $("mktTable").querySelector("tbody");
+    tb.innerHTML = "";
+    for (const t of j) {
+      tickers[t.symbol] = { price: +t.lastPrice, chg: +t.priceChangePercent };
+      const meta = SYMS.find(s => s.sym === t.symbol);
+      const tr = document.createElement("tr");
+      tr.className = "sym";
+      const chg = +t.priceChangePercent;
+      tr.innerHTML = "<td>" + meta.short + " · " + meta.name + "</td><td>" + (+t.lastPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: +t.lastPrice < 1 ? 5 : 2 }) + "</td>" +
+        "<td class='" + (chg >= 0 ? "up" : "down") + "'>" + (chg >= 0 ? "▲" : "▼") + " " + Math.abs(chg).toFixed(2) + "%</td>";
+      tr.onclick = () => { chartSym = t.symbol; drawChart(); };
+      tb.appendChild(tr);
+    }
+    renderPortfolio();
+  } catch { /* offline: mantém última leitura */ }
+}
+
+async function drawChart() {
+  const cv = $("chart"), ctx = cv.getContext("2d");
+  const W = cv.width = cv.clientWidth * (devicePixelRatio || 1);
+  const H = cv.height = 180 * (devicePixelRatio || 1);
+  ctx.clearRect(0, 0, W, H);
+  let candles = [];
+  try {
+    const r = await fetch("https://api.binance.com/api/v3/klines?symbol=" + chartSym + "&interval=1h&limit=96");
+    candles = (await r.json()).map(k => ({ o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
+  } catch {
+    ctx.fillStyle = "#7d97ab"; ctx.font = (12 * devicePixelRatio) + "px JetBrains Mono";
+    ctx.fillText("gráfico indisponível offline", 20, H / 2);
+    return;
+  }
+  const lo = Math.min(...candles.map(c => c.l)), hi = Math.max(...candles.map(c => c.h));
+  const x = (i) => (i + 0.5) * (W / candles.length);
+  const y = (p) => H - ((p - lo) / (hi - lo || 1)) * (H * 0.86) - H * 0.07;
+  const bw = Math.max(1, (W / candles.length) * 0.55);
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i], up = c.c >= c.o;
+    ctx.strokeStyle = ctx.fillStyle = up ? "#3ddc84" : "#ff5d5d";
+    ctx.beginPath(); ctx.moveTo(x(i), y(c.h)); ctx.lineTo(x(i), y(c.l)); ctx.stroke();
+    ctx.fillRect(x(i) - bw / 2, Math.min(y(c.o), y(c.c)), bw, Math.max(1, Math.abs(y(c.o) - y(c.c))));
+  }
+  ctx.fillStyle = "#4fd8ff"; ctx.font = (11 * devicePixelRatio) + "px JetBrains Mono";
+  const meta = SYMS.find(s => s.sym === chartSym);
+  ctx.fillText((meta ? meta.short : chartSym) + " · velas de 1h · últimos 4 dias", 10 * devicePixelRatio, 16 * devicePixelRatio);
+  ctx.fillStyle = "#7d97ab";
+  ctx.fillText("máx " + hi.toLocaleString("pt-BR") + " · mín " + lo.toLocaleString("pt-BR"), 10 * devicePixelRatio, 30 * devicePixelRatio);
+}
+
+/* câmbio (open.er-api.com, sem chave) */
+async function fxReport(which) {
+  const base = which.startsWith("d") ? "USD" : which === "euro" ? "EUR" : "GBP";
+  const nome = base === "USD" ? "dólar" : base === "EUR" ? "euro" : "libra";
+  const r = await fetch("https://open.er-api.com/v6/latest/" + base);
+  const j = await r.json();
+  const brl = j.rates && j.rates.BRL;
+  if (!brl) throw new Error("câmbio indisponível");
+  return "O " + nome + " está em R$ " + brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ".";
+}
+
+/* ---------------- carteira simulada ---------------- */
+function pf() { return store.get("portfolio", { usd: 10000, pos: {} }); }
+function savePf(p) { store.set("portfolio", p); renderPortfolio(); }
+
+function renderPortfolio() {
+  const p = pf();
+  const tb = $("pfTable").querySelector("tbody");
+  tb.innerHTML = "";
+  let equity = p.usd;
+  for (const sym in p.pos) {
+    const pos = p.pos[sym];
+    if (pos.qty <= 0) continue;
+    const now = tickers[sym] ? tickers[sym].price : pos.avg;
+    const pl = (now - pos.avg) * pos.qty;
+    equity += now * pos.qty;
+    const meta = SYMS.find(s => s.sym === sym);
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + (meta ? meta.short : sym) + "</td><td>" + pos.qty.toPrecision(5) + "</td>" +
+      "<td>" + pos.avg.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "</td>" +
+      "<td>" + now.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "</td>" +
+      "<td class='" + (pl >= 0 ? "up" : "down") + "'>" + (pl >= 0 ? "+" : "") + pl.toFixed(2) + "</td>";
+    tb.appendChild(tr);
+  }
+  $("pfSummary").textContent = "Caixa: " + fmtUsd(p.usd) + " · Patrimônio total: " + fmtUsd(equity) +
+    " · Resultado desde o início: " + (equity - 10000 >= 0 ? "+" : "") + (equity - 10000).toFixed(2) + " US$";
+}
+
+function fillTradeSel() {
+  const sel = $("tradeSym");
+  for (const s of SYMS) {
+    const o = document.createElement("option");
+    o.value = s.sym; o.textContent = s.short;
+    sel.appendChild(o);
+  }
+}
+$("buyBtn").onclick = async () => {
+  const sym = $("tradeSym").value, usd = +$("tradeUsd").value;
+  if (!(usd > 0)) return;
+  const p = pf();
+  if (usd > p.usd) return jarvisSay("Saldo virtual insuficiente, senhor. Caixa atual: " + fmtUsd(p.usd));
+  try {
+    const { price } = await coinPrice(sym);
+    const qty = usd / price;
+    const pos = p.pos[sym] || { qty: 0, avg: 0 };
+    pos.avg = (pos.avg * pos.qty + usd) / (pos.qty + qty);
+    pos.qty += qty; p.usd -= usd; p.pos[sym] = pos;
+    savePf(p);
+    jarvisSay("Ordem simulada executada: compra de " + qty.toPrecision(5) + " " + sym.replace("USDT", "") + " a " + fmtUsd(price) + ".");
+  } catch (e) { jarvisSay("Não consegui executar: " + e.message); }
+};
+$("sellBtn").onclick = async () => {
+  const sym = $("tradeSym").value, usd = +$("tradeUsd").value;
+  const p = pf();
+  const pos = p.pos[sym];
+  if (!pos || pos.qty <= 0) return jarvisSay("Não há posição em " + sym.replace("USDT", "") + " para vender.");
+  try {
+    const { price } = await coinPrice(sym);
+    const qty = Math.min(pos.qty, usd / price);
+    pos.qty -= qty; p.usd += qty * price;
+    if (pos.qty < 1e-9) delete p.pos[sym];
+    savePf(p);
+    jarvisSay("Ordem simulada executada: venda de " + qty.toPrecision(5) + " " + sym.replace("USDT", "") + " a " + fmtUsd(price) + ".");
+  } catch (e) { jarvisSay("Não consegui executar: " + e.message); }
+};
+$("resetPf").onclick = () => { savePf({ usd: 10000, pos: {} }); jarvisSay("Carteira de treino zerada: US$ 10.000 disponíveis."); };
+
+/* ---------------- bots de IA ---------------- */
+function aiCfg() {
+  return store.get("ai", { provider: "none", keys: {}, url: "http://localhost:11434", model: "" });
+}
+function renderAiCfg() {
+  const c = aiCfg();
+  $("aiProvider").value = c.provider;
+  $("aiKey").value = (c.keys && c.keys[c.provider]) || "";
+  $("aiUrl").value = c.url || "http://localhost:11434";
+  $("aiModel").value = c.model || "";
+  $("aiKeyRow").hidden = c.provider === "none" || c.provider === "ollama";
+  $("aiUrlRow").hidden = c.provider !== "ollama";
+  const names = { none: "comandos locais", xai: "Grok (xAI)", openai: "OpenAI", groq: "Groq", ollama: "Ollama local" };
+  $("chipBot").innerHTML = "CÉREBRO <b>" + names[c.provider] + "</b>";
+}
+$("aiProvider").onchange = () => {
+  const prov = $("aiProvider").value;
+  $("aiKeyRow").hidden = prov === "none" || prov === "ollama";
+  $("aiUrlRow").hidden = prov !== "ollama";
+  const models = { xai: "grok-4", openai: "gpt-4o-mini", groq: "llama-3.3-70b-versatile", ollama: "llama3.2", none: "" };
+  $("aiModel").value = models[prov];
+  const c = aiCfg();
+  $("aiKey").value = (c.keys && c.keys[prov]) || "";
+};
+$("aiSave").onclick = () => {
+  const c = aiCfg();
+  c.provider = $("aiProvider").value;
+  c.keys = c.keys || {};
+  if ($("aiKey").value.trim()) c.keys[c.provider] = $("aiKey").value.trim();
+  c.url = $("aiUrl").value.trim() || "http://localhost:11434";
+  c.model = $("aiModel").value.trim();
+  store.set("ai", c);
+  store.set("voice", $("voiceSel").value);
+  renderAiCfg();
+  $("aiOut").textContent = "Configuração salva neste aparelho.";
+  jarvisSay("Cérebro reconfigurado, senhor.");
+};
+
+const SYSTEM_PROMPT =
+  "Você é J.A.R.V.I.S., o assistente pessoal fiel e espirituoso, no estilo do mordomo de Tony Stark. " +
+  "Responda sempre em português do Brasil, trate o usuário por 'senhor', seja preciso, direto e ocasionalmente bem-humorado. " +
+  "Respostas curtas quando possível, pois serão lidas em voz alta.";
+
+async function askAI(text, cfg) {
+  const endpoints = {
+    xai: "https://api.x.ai/v1/chat/completions",
+    openai: "https://api.openai.com/v1/chat/completions",
+    groq: "https://api.groq.com/openai/v1/chat/completions",
+    ollama: (cfg.url || "http://localhost:11434") + "/v1/chat/completions",
+  };
+  const key = cfg.keys && cfg.keys[cfg.provider];
+  if (cfg.provider !== "ollama" && !key) throw new Error("configure a chave de API no painel Cérebro");
+  const hist = store.get("hist", []);
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...hist.slice(-10), { role: "user", content: text }];
+  const r = await fetch(endpoints[cfg.provider], {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(key ? { Authorization: "Bearer " + key } : {}) },
+    body: JSON.stringify({ model: cfg.model || "grok-4", messages, max_tokens: 700 }),
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error("o provedor respondeu " + r.status + (body ? " — " + body.slice(0, 160) : ""));
+  }
+  const j = await r.json();
+  const reply = j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content : "(sem resposta)";
+  store.set("hist", [...hist.slice(-10), { role: "user", content: text }, { role: "assistant", content: reply }]);
+  return reply;
+}
+
+/* ---------------- inicialização ---------------- */
+// PWA: com https, guarda a interface para abrir mesmo sem internet
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+fillTradeSel();
+renderAiCfg();
+refreshMarkets().then(drawChart);
+setInterval(refreshMarkets, 15000);
+fetchNews("").then(renderNews);
+addEventListener("resize", () => drawChart());
+
+jarvisSay("Bom dia, senhor. J.A.R.V.I.S. operacional. Diga \"ajuda\" para ver o que posso fazer.");
+</script>
+</body>
+</html>
