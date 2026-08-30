@@ -115,9 +115,25 @@ Sendo direto, porque promessa de filme não paga boleto:
   coisa de app nativo (e é bom que seja: ninguém quer uma página sabendo onde
   você está sem perguntar).
 - **A voz exata do Jarvis do filme** — a voz é do ator Paul Bettany e é
-  protegida. Usei a melhor voz masculina pt-BR do próprio aparelho, com tom
-  mais grave. No Windows, instale as vozes "Daniel" ou "Antônio" em
-  Configurações → Hora e idioma → Fala para melhorar bastante.
+  protegida. O Jarvis escolhe sozinho a melhor voz masculina do aparelho, e
+  dá para melhorar muito:
+  - **iPhone:** baixe a voz **Felipe** (Ajustes → Acessibilidade → Conteúdo
+    Falado → Vozes → Português) — o Jarvis passa a usá-la sozinho.
+  - **Windows:** abra o Jarvis no **Edge**, que expõe as vozes neurais
+    "Antonio (Natural)" e "Daniel (Natural)".
+  - **Voz de cinema:** crie uma conta grátis em **elevenlabs.io**, gere uma
+    chave e cole no painel Cérebro — o Jarvis passa a falar com voz neural
+    de altíssima qualidade (padrão: "Adam", grave; aceita outro voice ID).
+
+### O microfone não responde?
+
+1. **Permissão:** no Safari, toque no "aA"/cadeado na barra de endereço →
+   Ajustes do Site → Microfone → Permitir.
+2. **Ditado ligado:** Ajustes → Geral → Teclado → ative **Ditado** (o
+   reconhecimento do Safari usa esse serviço).
+3. **Fale logo após tocar no 🎙** — ele escuta por até 12 segundos.
+4. **Alternativa infalível:** toque no campo de texto e use o microfone do
+   teclado do iPhone; o Jarvis responde por voz do mesmo jeito.
 
 ## Privacidade
 

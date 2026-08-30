@@ -1,6 +1,6 @@
 /* J.A.R.V.I.S. — service worker: guarda a interface para abrir sem internet.
    As APIs ao vivo (clima, cotações, notícias) continuam indo direto à rede. */
-const CACHE = "jarvis-v2";
+const CACHE = "jarvis-v3";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

@@ -383,8 +383,12 @@
         </div>
         <label class="small">Modelo</label>
         <input type="text" id="aiModel" placeholder="ex.: grok-4 · gpt-4o-mini · llama-3.3-70b-versatile · llama3.2" />
-        <label class="small">Voz do Jarvis</label>
+        <label class="small">Voz do Jarvis (as melhores masculinas primeiro)</label>
         <select id="voiceSel"></select>
+        <p class="hint">Para uma voz mais natural: no iPhone baixe a voz <b>Felipe</b> em Ajustes → Acessibilidade → Conteúdo Falado → Vozes → Português; no Windows, abra o Jarvis no <b>Edge</b>, que tem as vozes neurais "Antonio/Daniel (Natural)".</p>
+        <label class="small">Voz de cinema — ElevenLabs (opcional)</label>
+        <input type="password" id="ttsKey" placeholder="chave da elevenlabs.io (tem plano grátis)" />
+        <input type="text" id="ttsVoice" placeholder="voice ID (opcional — padrão: Adam, grave)" style="margin-top:6px" />
         <div class="row" style="margin-top:10px">
           <button id="aiSave">Salvar</button>
           <button id="voiceTest">Testar voz</button>
@@ -446,16 +450,25 @@ addEventListener("online", netStatus); addEventListener("offline", netStatus); n
 /* ---------------- voz: fala ---------------- */
 const hasTTS = "speechSynthesis" in window;
 let voices = [];
+
+// nota de cada voz: masculina, brasileira e "neural/natural" pontuam mais alto
+function scoreVoice(v) {
+  const n = v.name.toLowerCase();
+  let s = 0;
+  if (/pt[-_]br/i.test(v.lang)) s += 6;
+  else if (/^pt/i.test(v.lang)) s += 3;
+  if (/(felipe|ant[ôo]nio|daniel|ricardo|thiago|francisco|duarte|male|masculin)/.test(n)) s += 5;
+  if (/(luciana|maria(?!o)|francisca|camila|vit[óo]ria|joana|catarina|fernanda|helo[íi]sa|let[íi]cia|manuela|female|feminin)/.test(n)) s -= 5;
+  if (/(natural|neural|online|premium|enhanced|aprimorad|multilingual)/.test(n)) s += 3;
+  return s;
+}
 function loadVoices() {
   if (!hasTTS) return;
   voices = speechSynthesis.getVoices();
   const sel = $("voiceSel");
   sel.innerHTML = "";
   const pt = voices.filter(v => /^pt/i.test(v.lang));
-  const list = pt.length ? pt : voices;
-  // vozes com nome tipicamente masculino primeiro — o mais perto do Jarvis
-  const maleHint = /daniel|felipe|ricardo|antonio|male|masculin|thiago|google.*portugu/i;
-  list.sort((a, b) => (maleHint.test(b.name) ? 1 : 0) - (maleHint.test(a.name) ? 1 : 0));
+  const list = (pt.length ? pt : voices.slice()).sort((a, b) => scoreVoice(b) - scoreVoice(a));
   for (const v of list) {
     const o = document.createElement("option");
     o.value = v.name; o.textContent = v.name + " (" + v.lang + ")";
@@ -463,39 +476,98 @@ function loadVoices() {
   }
   const saved = store.get("voice", null);
   if (saved && list.some(v => v.name === saved)) sel.value = saved;
+  // sem escolha salva, fica com a melhor voz masculina disponível (topo da lista)
 }
 if (hasTTS) speechSynthesis.onvoiceschanged = loadVoices;
 loadVoices();
 
-function speak(text) {
-  if (!hasTTS || !$("speakToggle").checked) return;
+// desbloqueia o áudio no primeiro toque (exigência do iPhone para falar depois)
+addEventListener("pointerdown", () => {
+  const a = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=");
+  a.play().catch(() => {});
+  if (hasTTS) { const u = new SpeechSynthesisUtterance(""); speechSynthesis.speak(u); }
+}, { once: true, capture: true });
+
+let currentAudio = null;
+function speakLocal(clean) {
+  if (!hasTTS) return;
   speechSynthesis.cancel();
-  const clean = text.replace(/https?:\/\/\S+/g, "").replace(/[*_#`|]/g, "").slice(0, 600);
   const u = new SpeechSynthesisUtterance(clean);
   const v = voices.find(x => x.name === $("voiceSel").value);
   if (v) u.voice = v;
   u.lang = (v && v.lang) || "pt-BR";
-  u.rate = 1.02; u.pitch = 0.85; // um tom mais grave, estilo Jarvis
+  const neural = v && /(natural|neural|online)/i.test(v.name);
+  u.rate = 1.0;
+  u.pitch = neural ? 1 : 0.9; // vozes neurais soam melhor sem mexer no tom
   speechSynthesis.speak(u);
+}
+// voz premium (ElevenLabs): neural de verdade, a mais próxima de cinema
+async function speakEleven(clean, cfg) {
+  const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" +
+    (cfg.voiceId || "pNInz6obpgDQGcFmaJgB") + "?output_format=mp3_44100_64", {
+    method: "POST",
+    headers: { "xi-api-key": cfg.key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: clean,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.45, similarity_boost: 0.8 },
+    }),
+  });
+  if (!r.ok) throw new Error("ElevenLabs " + r.status);
+  const url = URL.createObjectURL(await r.blob());
+  if (currentAudio) currentAudio.pause();
+  currentAudio = new Audio(url);
+  currentAudio.onended = () => URL.revokeObjectURL(url);
+  await currentAudio.play();
+}
+function speak(text) {
+  if (!$("speakToggle").checked) return;
+  const clean = text.replace(/https?:\/\/\S+/g, "").replace(/[*_#`|]/g, "").slice(0, 600);
+  const tts = store.get("tts", {});
+  if (tts.key && navigator.onLine) speakEleven(clean, tts).catch(() => speakLocal(clean));
+  else speakLocal(clean);
 }
 $("voiceTest").onclick = () => speak("Às suas ordens, senhor. Todos os sistemas operacionais.");
 
 /* ---------------- voz: escuta ---------------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, listening = false;
+let rec = null, listening = false, heard = false;
+const MIC_TIP = "Alternativa que sempre funciona: toque no campo de texto e use o microfone do teclado do iPhone (o ditado) — eu respondo do mesmo jeito, por voz.";
 if (SR) {
   rec = new SR();
-  rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
-  rec.onresult = (e) => { const t = e.results[0][0].transcript; $("chatInput").value = t; handleUserText(t); };
+  rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
+  rec.onresult = (e) => {
+    heard = true;
+    const t = e.results[e.results.length - 1][0].transcript.trim();
+    if (t) { $("chatInput").value = t; handleUserText(t); }
+  };
   rec.onend = () => { listening = false; $("micBtn").classList.remove("listening"); };
-  rec.onerror = rec.onend;
+  rec.onerror = (e) => {
+    listening = false; $("micBtn").classList.remove("listening");
+    const msgs = {
+      "not-allowed": "O navegador bloqueou o microfone. No iPhone: toque no \"aA\" (ou no cadeado) na barra do Safari → Ajustes do Site → Microfone → Permitir. " + MIC_TIP,
+      "service-not-allowed": "O serviço de ditado do aparelho está desligado. No iPhone: Ajustes → Geral → Teclado → ative \"Ditado\". " + MIC_TIP,
+      "audio-capture": "Não encontrei microfone neste aparelho.",
+      "network": "O serviço de reconhecimento de voz não respondeu agora. " + MIC_TIP,
+      "no-speech": "Não ouvi nada, senhor. Toque no microfone e fale logo em seguida, um pouco mais perto do aparelho.",
+      "aborted": null,
+    };
+    const m = e.error in msgs ? msgs[e.error] : "Erro no reconhecimento de voz (" + e.error + "). " + MIC_TIP;
+    if (m) addMsg("jarvis", m);
+  };
 } else {
-  $("micBtn").title = "Reconhecimento de voz não disponível neste navegador (use Chrome, Edge ou Safari).";
+  $("micBtn").title = "Reconhecimento de voz não disponível neste navegador.";
 }
 $("micBtn").onclick = () => {
-  if (!rec) { addMsg("jarvis", "Este navegador não escuta por microfone. No iPhone use o Safari; no notebook, Chrome ou Edge."); return; }
+  if (!rec) {
+    addMsg("jarvis", "Este navegador não tem reconhecimento de voz embutido. " + MIC_TIP);
+    return;
+  }
   if (listening) { rec.stop(); return; }
-  listening = true; $("micBtn").classList.add("listening"); rec.start();
+  if (hasTTS) speechSynthesis.cancel(); // não escutar a si mesmo
+  listening = true; heard = false; $("micBtn").classList.add("listening");
+  try { rec.start(); } catch { /* já estava rodando */ }
+  setTimeout(() => { if (listening && !heard) { try { rec.stop(); } catch { /* ok */ } } }, 12000);
 };
 
 /* ---------------- chat ---------------- */
@@ -881,6 +953,9 @@ function renderAiCfg() {
   $("aiUrlRow").hidden = c.provider !== "ollama";
   const names = { none: "comandos locais", xai: "Grok (xAI)", openai: "OpenAI", groq: "Groq", ollama: "Ollama local" };
   $("chipBot").innerHTML = "CÉREBRO <b>" + names[c.provider] + "</b>";
+  const tts = store.get("tts", {});
+  $("ttsKey").value = tts.key || "";
+  $("ttsVoice").value = tts.voiceId || "";
 }
 $("aiProvider").onchange = () => {
   const prov = $("aiProvider").value;
@@ -900,6 +975,7 @@ $("aiSave").onclick = () => {
   c.model = $("aiModel").value.trim();
   store.set("ai", c);
   store.set("voice", $("voiceSel").value);
+  store.set("tts", { key: $("ttsKey").value.trim(), voiceId: $("ttsVoice").value.trim() });
   renderAiCfg();
   $("aiOut").textContent = "Configuração salva neste aparelho.";
   jarvisSay("Cérebro reconfigurado, senhor.");
