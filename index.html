@@ -194,6 +194,34 @@
 
   footer { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 12px; color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
 
+  /* ---------- campo neural ---------- */
+  #neuralBtn { font-size: 0.72rem; padding: 5px 12px; border-radius: 999px; }
+  #neural {
+    position: fixed; inset: 0; z-index: 60; background: #010409;
+    touch-action: none; overscroll-behavior: none;
+  }
+  #neuralCv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; -webkit-user-select: none; user-select: none; }
+  .n-top {
+    position: absolute; top: max(10px, env(safe-area-inset-top)); left: 14px;
+    font-family: "JetBrains Mono", monospace; font-size: 0.6rem; letter-spacing: 0.22em;
+    color: rgba(122, 184, 212, 0.75); text-transform: uppercase; line-height: 1.9; pointer-events: none;
+  }
+  #neuralClose {
+    position: absolute; top: max(10px, env(safe-area-inset-top)); right: 14px;
+    font-size: 0.7rem; padding: 7px 14px; border-radius: 999px;
+  }
+  .n-hint {
+    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); left: 0; right: 0;
+    text-align: center; font-family: "JetBrains Mono", monospace; font-size: 0.62rem;
+    letter-spacing: 0.18em; color: rgba(122, 184, 212, 0.55); text-transform: uppercase; pointer-events: none;
+  }
+  @keyframes cardflash {
+    0% { box-shadow: 0 0 0 rgba(79,216,255,0); }
+    25% { box-shadow: 0 0 34px rgba(79,216,255,0.75); border-color: var(--cyan); }
+    100% { box-shadow: 0 0 0 rgba(79,216,255,0); }
+  }
+  .flash { animation: cardflash 1.6s ease-out; }
+
   /* ---------- telas ---------- */
   @media (max-width: 980px) {
     .grid { grid-template-columns: 1fr; }
@@ -216,6 +244,7 @@
       <small>Just A Rather Very Intelligent System</small>
     </div>
     <div class="status-row">
+      <button id="neuralBtn" title="Abrir o campo neural">◉ CAMPO NEURAL</button>
       <span class="chip" id="chipClock"><b>--:--:--</b></span>
       <span class="chip" id="chipNet"><b>...</b></span>
       <span class="chip" id="chipGeo">LOCAL <b>desconhecido</b></span>
@@ -369,6 +398,13 @@
     </div>
   </div>
 
+  <div id="neural" hidden>
+    <canvas id="neuralCv"></canvas>
+    <div class="n-top">Rede neural J.A.R.V.I.S. — orquestração ao vivo<br /><span id="nStatus">sistema online — aguardando comando</span></div>
+    <button id="neuralClose">✕ Fechar</button>
+    <div class="n-hint">arraste para girar · pinça para zoom · toque num núcleo para ativar</div>
+  </div>
+
   <footer>
     J.A.R.V.I.S. — painel pessoal. Clima: Open-Meteo · Cotações: Binance &amp; open.er-api.com · Notícias: Google News RSS · Tradução: MyMemory ·
     Endereço reverso: BigDataCloud. Chaves de API ficam gravadas somente neste navegador (localStorage).
@@ -508,6 +544,11 @@ async function handleUserText(text) {
     if (wx) return jarvisSay(await weatherReport(wx[1]));
 
     if (/onde estou|minha localiza/.test(q)) { startGeo(); return; }
+
+    if (/campo neural|rede neural|^neural$/.test(q)) {
+      neural.open();
+      return jarvisSay("Campo neural projetado, senhor. Toque num núcleo para ativá-lo.");
+    }
 
     if (/not[íi]cias|manchetes/.test(q)) {
       const heads = await fetchNews($("newsTopic").value);
@@ -894,6 +935,245 @@ async function askAI(text, cfg) {
   store.set("hist", [...hist.slice(-10), { role: "user", content: text }, { role: "assistant", content: reply }]);
   return reply;
 }
+
+/* ---------------- campo neural ---------------- */
+const neural = (() => {
+  const overlay = $("neural"), cv = $("neuralCv"), ctx = cv.getContext("2d");
+  const CYAN = [79, 216, 255], GOLD = [240, 180, 41], WHITE = [230, 250, 255];
+  const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // agentes orbitando o núcleo; anchor = elemento da página que o toque ativa
+  const NODES = [
+    { id: "clima",    label: "CLIMA MUNDIAL", sub: () => "open-meteo", color: CYAN, anchor: "wxCity",   say: "Módulo de clima ativado." },
+    { id: "geo",      label: "LOCALIZAÇÃO",   sub: () => "gps",        color: CYAN, anchor: "geoBtn",   say: "Módulo de localização ativado." },
+    { id: "mercados", label: "MERCADOS",      sub: () => tickers.BTCUSDT ? "btc " + Math.round(tickers.BTCUSDT.price / 1000) + "k" : "binance", color: GOLD, anchor: "mktTable", say: "Módulo de mercados ativado." },
+    { id: "noticias", label: "NOTÍCIAS",      sub: () => "ao vivo",    color: CYAN, anchor: "newsList", say: "Módulo de notícias ativado." },
+    { id: "tradutor", label: "TRADUTOR",      sub: () => "11 idiomas", color: CYAN, anchor: "trText",   say: "Tradutor universal ativado." },
+    { id: "cerebro",  label: "CÉREBRO IA",    sub: () => ({ none: "local", xai: "grok", openai: "gpt", groq: "llama", ollama: "offline" })[aiCfg().provider], color: WHITE, anchor: "aiProvider", say: "Núcleo de inteligência ativado." },
+    { id: "voz",      label: "VOZ",           sub: () => "pt-br",      color: CYAN, anchor: "chatInput", say: "Interface de voz operacional, senhor." },
+    { id: "carteira", label: "CARTEIRA",      sub: () => "simulação",  color: GOLD, anchor: "pfTable",  say: "Carteira de treino ativada." },
+  ];
+  NODES.forEach((n, i) => {
+    const golden = i * 2.399963; // distribui os nós sem alinhar
+    n.orbitR = 235 + (i % 3) * 60;             // raio da órbita em torno do núcleo
+    n.a0 = golden; n.speed = 0.02 + 0.012 * ((i * 7) % 5) / 5;
+    n.incl = 0.5 + 0.45 * Math.sin(i * 1.7);   // inclinação do plano orbital
+    n.ringTilt = golden * 1.3; n.pulse = 0; n.sx = 0; n.sy = 0; n.sr = 0; n.depth = 0;
+  });
+
+  // partículas do núcleo (nuvem esférica que gira)
+  const CORE = [];
+  for (let i = 0; i < 420; i++) {
+    const r = 26 + Math.abs(gauss()) * 46;
+    CORE.push({ r, th: Math.random() * Math.PI * 2, ph: Math.acos(2 * Math.random() - 1), sp: (0.1 + Math.random() * 0.35) * (Math.random() < 0.5 ? 1 : -1), sz: 0.5 + Math.random() * 1.6, tw: Math.random() * Math.PI * 2 });
+  }
+  function gauss() { let s = 0; for (let i = 0; i < 4; i++) s += Math.random() - 0.5; return s / 2; }
+
+  // estrelas de fundo (espaço de tela)
+  const STARS = Array.from({ length: 130 }, () => ({ x: Math.random(), y: Math.random(), sz: Math.random() * 1.3 + 0.3, tw: Math.random() * Math.PI * 2 }));
+
+  // pacotes de dados viajando núcleo ⇄ agente
+  const PACKETS = [];
+  NODES.forEach((n, i) => { for (let k = 0; k < 2; k++) PACKETS.push({ node: i, t: Math.random(), sp: 0.15 + Math.random() * 0.25, out: k === 0 }); });
+
+  let yaw = 0.6, pitch = -0.42, zoom = 1, vyaw = 0, vpitch = 0, lastTouch = 0;
+  let running = false, t0 = 0, W = 0, H = 0, DPR = 1;
+
+  function rot(p) { // gira o mundo e projeta em tela
+    const [x, y, z] = p;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cx = Math.cos(pitch), sx = Math.sin(pitch);
+    const x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+    const y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx;
+    const persp = 900 / (900 + z2);
+    return [W / 2 + x1 * persp * zoom, H / 2 + y2 * persp * zoom, persp, z2];
+  }
+  function nodePos3d(n, t) {
+    const a = n.a0 + t * n.speed;
+    const x = Math.cos(a) * n.orbitR, zz = Math.sin(a) * n.orbitR;
+    return [x, zz * Math.sin(n.incl) * 0.7, zz * Math.cos(n.incl)];
+  }
+
+  function resize() {
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    W = cv.width = overlay.clientWidth * DPR;
+    H = cv.height = overlay.clientHeight * DPR;
+  }
+
+  function frame(now) {
+    if (!running) return;
+    const t = (now - t0) / 1000;
+    // rotação automática suave quando ninguém está tocando
+    if (!reduced && now - lastTouch > 3000) vyaw += (0.0022 - vyaw) * 0.02;
+    yaw += vyaw; pitch += vpitch;
+    pitch = Math.max(-1.3, Math.min(1.3, pitch));
+    vyaw *= 0.95; vpitch *= 0.95;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#010409"; ctx.fillRect(0, 0, W, H);
+
+    for (const s of STARS) {
+      const a = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t * 1.3 + s.tw));
+      ctx.fillStyle = rgba(WHITE, a * 0.5);
+      ctx.fillRect(s.x * W, s.y * H, s.sz * DPR, s.sz * DPR);
+    }
+
+    ctx.globalCompositeOperation = "lighter";
+    const scale = Math.min(W, H) / 700; // normaliza para caber em qualquer tela
+
+    // conexões + pacotes
+    for (let i = 0; i < NODES.length; i++) {
+      const n = NODES[i];
+      const p3 = nodePos3d(n, t);
+      const [nx, ny, npersp, ndepth] = rot(p3.map(v => v * scale));
+      n.sx = nx; n.sy = ny; n.depth = ndepth; n.sr = (16 + 30 * npersp) * scale * (0.8 + npersp * 0.4);
+      const [cxp, cyp] = rot([0, 0, 0]);
+      ctx.strokeStyle = rgba(n.color, 0.10 + 0.08 * npersp);
+      ctx.lineWidth = DPR;
+      ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(nx, ny); ctx.stroke();
+    }
+    for (const pk of PACKETS) {
+      pk.t += pk.sp / 60; if (pk.t > 1) pk.t -= 1;
+      const n = NODES[pk.node];
+      const f = pk.out ? pk.t : 1 - pk.t;
+      const [cxp, cyp] = rot([0, 0, 0]);
+      const px = cxp + (n.sx - cxp) * f, py = cyp + (n.sy - cyp) * f;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, 5 * DPR);
+      g.addColorStop(0, rgba(n.color, 0.9)); g.addColorStop(1, rgba(n.color, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, 5 * DPR, 0, 7); ctx.fill();
+    }
+
+    // núcleo: nuvem de partículas + coração brilhante
+    for (const p of CORE) {
+      p.th += p.sp / 60;
+      const r = p.r * scale;
+      const p3 = [r * Math.sin(p.ph) * Math.cos(p.th), r * Math.cos(p.ph) * 0.85, r * Math.sin(p.ph) * Math.sin(p.th)];
+      const [px, py, persp] = rot(p3);
+      const a = (0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2 + p.tw))) * persp;
+      ctx.fillStyle = rgba(CYAN, a);
+      const sz = p.sz * DPR * persp;
+      ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+    }
+    const [ccx, ccy] = rot([0, 0, 0]);
+    const coreR = (52 + 5 * Math.sin(t * 2.2)) * scale * zoom;
+    let g = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, coreR);
+    g.addColorStop(0, "rgba(235,255,255,0.95)"); g.addColorStop(0.25, rgba(CYAN, 0.55)); g.addColorStop(1, rgba(CYAN, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ccx, ccy, coreR, 0, 7); ctx.fill();
+
+    // agentes: anel orbital próprio + brilho + satélites
+    const order = [...NODES].sort((a, b) => b.depth - a.depth);
+    for (const n of order) {
+      const rr = n.sr;
+      ctx.strokeStyle = rgba(n.color, 0.4);
+      ctx.lineWidth = DPR;
+      ctx.beginPath(); ctx.ellipse(n.sx, n.sy, rr, rr * 0.38, n.ringTilt, 0, 7); ctx.stroke();
+      for (let k = 0; k < 3; k++) {
+        const a = t * (1 + k * 0.3) + k * 2.1 + n.a0;
+        const ex = Math.cos(a) * rr, ey = Math.sin(a) * rr * 0.38;
+        const sx2 = n.sx + ex * Math.cos(n.ringTilt) - ey * Math.sin(n.ringTilt);
+        const sy2 = n.sy + ex * Math.sin(n.ringTilt) + ey * Math.cos(n.ringTilt);
+        ctx.fillStyle = rgba(n.color, 0.85);
+        ctx.beginPath(); ctx.arc(sx2, sy2, 1.6 * DPR, 0, 7); ctx.fill();
+      }
+      g = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, rr * 0.55);
+      g.addColorStop(0, rgba(WHITE, 0.9)); g.addColorStop(0.35, rgba(n.color, 0.5)); g.addColorStop(1, rgba(n.color, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.sx, n.sy, rr * 0.55, 0, 7); ctx.fill();
+      if (n.pulse > 0) { // onda de ativação ao toque
+        ctx.strokeStyle = rgba(n.color, n.pulse * 0.8);
+        ctx.lineWidth = 2 * DPR;
+        ctx.beginPath(); ctx.arc(n.sx, n.sy, rr * (1 + (1 - n.pulse) * 2.2), 0, 7); ctx.stroke();
+        n.pulse -= 0.02;
+      }
+    }
+
+    // rótulos por cima de tudo
+    ctx.globalCompositeOperation = "source-over";
+    for (const n of order) {
+      const fs = Math.max(9, 10 * (0.8 + 0.4 * (900 / (900 + n.depth)))) * DPR;
+      ctx.font = "700 " + fs + "px Orbitron, monospace";
+      ctx.fillStyle = rgba(n.color, 0.95);
+      ctx.textAlign = "center";
+      ctx.fillText(n.label, n.sx, n.sy - n.sr - 8 * DPR);
+      ctx.font = (fs * 0.62) + "px 'JetBrains Mono', monospace";
+      ctx.fillStyle = rgba(n.color, 0.55);
+      ctx.fillText("• " + (n.sub() || "ativo"), n.sx, n.sy - n.sr + fs * 0.62 - 6 * DPR);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* --- gestos: arrastar gira, pinça dá zoom, toque ativa --- */
+  const touches = new Map();
+  let tapStart = null, pinchD = 0;
+  cv.addEventListener("pointerdown", (e) => {
+    cv.setPointerCapture(e.pointerId);
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastTouch = performance.now();
+    if (touches.size === 1) tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); tapStart = null; }
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!touches.has(e.pointerId)) return;
+    const prev = touches.get(e.pointerId);
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastTouch = performance.now();
+    if (touches.size === 1) {
+      vyaw = (e.clientX - prev.x) * 0.004;
+      vpitch = (e.clientY - prev.y) * 0.004;
+      yaw += vyaw * 0.5; pitch += vpitch * 0.5;
+    } else if (touches.size === 2) {
+      const [a, b] = [...touches.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchD) zoom = Math.max(0.5, Math.min(2.4, zoom * d / pinchD));
+      pinchD = d;
+    }
+  });
+  function endPointer(e) {
+    touches.delete(e.pointerId); pinchD = 0;
+    if (tapStart && performance.now() - tapStart.t < 350 &&
+        Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 12) {
+      const px = e.clientX * DPR, py = e.clientY * DPR;
+      let best = null, bd = 1e9;
+      for (const n of NODES) {
+        const d = Math.hypot(px - n.sx, py - n.sy);
+        if (d < Math.max(n.sr * 1.6, 40 * DPR) && d < bd) { bd = d; best = n; }
+      }
+      if (best) activate(best);
+    }
+    tapStart = null;
+  }
+  cv.addEventListener("pointerup", endPointer);
+  cv.addEventListener("pointercancel", endPointer);
+  cv.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(0.5, Math.min(2.4, zoom * (e.deltaY < 0 ? 1.08 : 0.92))); lastTouch = performance.now(); }, { passive: false });
+
+  function activate(n) {
+    n.pulse = 1;
+    $("nStatus").textContent = n.label.toLowerCase() + " — ativado";
+    speak(n.say);
+    setTimeout(() => {
+      close();
+      const el = $(n.anchor);
+      const card = el && el.closest("section");
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+      }
+    }, 700);
+  }
+
+  function open() {
+    overlay.hidden = false;
+    resize();
+    running = true; t0 = performance.now();
+    $("nStatus").textContent = "sistema online — aguardando comando";
+    requestAnimationFrame(frame);
+  }
+  function close() { running = false; overlay.hidden = true; }
+  $("neuralBtn").onclick = open;
+  $("neuralClose").onclick = close;
+  addEventListener("resize", () => { if (running) resize(); });
+  return { open, close };
+})();
 
 /* ---------------- inicialização ---------------- */
 // PWA: com https, guarda a interface para abrir mesmo sem internet
